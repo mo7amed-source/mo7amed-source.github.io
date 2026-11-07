@@ -35,6 +35,12 @@
     .wrap { position: relative; z-index: 1; }
     .container { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
 
+    #progress {
+      position: fixed; top: 0; left: 0; width: 100%; height: 3px; z-index: 30;
+      background: linear-gradient(90deg, var(--cyan), var(--amber));
+      transform-origin: left; transform: scaleX(0);
+    }
+
     /* Header */
     header {
       position: fixed; top: 0; left: 0; width: 100%; z-index: 20;
@@ -95,9 +101,18 @@
     section { padding: 110px 0; }
     h2 { font-family: "Sora", sans-serif; font-size: clamp(1.7rem, 4vw, 2.3rem); letter-spacing: -0.02em; margin-bottom: 14px; }
     .intro { color: var(--muted); max-width: 560px; margin-bottom: 40px; }
-    .js .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.8s ease, transform 0.8s ease; }
-    .js .reveal.in { opacity: 1; transform: none; }
     .two { display: grid; grid-template-columns: 1.3fr 1fr; gap: 48px; align-items: start; }
+
+    /* Scroll reveal */
+    .js .reveal {
+      opacity: 0; transform: translateY(40px) scale(0.98); filter: blur(6px);
+      transition: opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1), filter 0.9s;
+      transition-delay: var(--d, 0s);
+    }
+    .js .reveal.from-left { transform: translateX(-60px); }
+    .js .reveal.from-right { transform: translateX(60px); }
+    .js .reveal.pop { transform: scale(0.6); }
+    .js .reveal.in { opacity: 1; transform: none; filter: none; }
 
     /* About */
     .about p { color: var(--muted); }
@@ -160,12 +175,13 @@
     }
     @media (prefers-reduced-motion: reduce) {
       * { animation: none !important; transition: none !important; }
-      .rise, .js .reveal { opacity: 1; transform: none; }
+      .rise, .js .reveal { opacity: 1; transform: none; filter: none; }
     }
   </style>
 </head>
 <body>
   <canvas id="bg" aria-hidden="true"></canvas>
+  <div id="progress"></div>
 
   <div class="wrap">
     <header>
@@ -196,7 +212,7 @@
       </div>
 
       <section id="about" class="about">
-        <div class="container two reveal">
+        <div class="container two">
           <div>
             <h2>About me</h2>
             <p>I am a third-year computer science student at Kigali Independent University (ULK). I want to work as a back-end engineer, so most of my time goes into learning how data moves between a client, an API, and a database.</p>
@@ -211,7 +227,7 @@
       </section>
 
       <section id="skills">
-        <div class="container reveal">
+        <div class="container">
           <h2>Skills</h2>
           <p class="intro">The tools I use to build and ship my projects.</p>
           <div class="group">
@@ -231,7 +247,7 @@
       </section>
 
       <section id="projects">
-        <div class="container reveal">
+        <div class="container">
           <h2>Projects</h2>
           <p class="intro">A few things I have built while learning.</p>
           <div class="grid">
@@ -260,7 +276,7 @@
       </section>
 
       <section id="contact" class="contact">
-        <div class="container two reveal">
+        <div class="container two">
           <div>
             <h2>Contact</h2>
             <p class="intro" style="margin-bottom:0">I am looking for internships and projects to learn from. Write to me and I will reply.</p>
@@ -363,16 +379,69 @@
     }
     if (reduce) typedEl.textContent = words[0]; else tick();
 
-    /* Reveal sections on scroll */
-    const items = document.querySelectorAll(".reveal");
-    if ("IntersectionObserver" in window) {
+    /* Reveal on scroll */
+    const plan = [
+      ["section h2", ""],
+      ["section .intro", ""],
+      ["#about .two > div", "from-left"],
+      ["#about .facts", "from-right"],
+      ["#skills .group h3", ""],
+      [".chip", "pop"],
+      [".card", ""],
+      ["#contact .two > div", "from-left"],
+      ["#contact form", "from-right"]
+    ];
+    const targets = [];
+    const resetClasses = ["reveal", "in", "from-left", "from-right", "pop"];
+
+    plan.forEach(([sel, dir]) => {
+      document.querySelectorAll(sel).forEach((el) => {
+        const idx = Array.from(el.parentElement.children).indexOf(el);
+        let delay = 0;
+        if (sel === "section .intro") delay = 0.1;
+        if (sel === ".chip") delay = idx * 0.07;
+        if (sel === ".card") delay = idx * 0.12;
+        el.classList.add("reveal");
+        if (dir) el.classList.add(dir);
+        el.style.setProperty("--d", delay + "s");
+        targets.push(el);
+      });
+    });
+
+    if ("IntersectionObserver" in window && !reduce) {
       const io = new IntersectionObserver((entries) => {
-        entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); } });
-      }, { threshold: 0.12 });
-      items.forEach((el) => io.observe(el));
+        entries.forEach((en) => {
+          if (!en.isIntersecting) return;
+          const el = en.target;
+          el.classList.add("in");
+          io.unobserve(el);
+          const wait = (parseFloat(el.style.getPropertyValue("--d")) || 0) * 1000 + 1100;
+          setTimeout(() => el.classList.remove(...resetClasses), wait);
+        });
+      }, { threshold: 0.15, rootMargin: "0px 0px -8% 0px" });
+      targets.forEach((el) => io.observe(el));
     } else {
-      items.forEach((el) => el.classList.add("in"));
+      targets.forEach((el) => el.classList.remove(...resetClasses));
     }
+
+    /* Scroll progress and hero parallax */
+    const bar = document.getElementById("progress");
+    const heroBox = document.querySelector(".hero .container");
+    let ticking = false;
+    function onScroll() {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      bar.style.transform = "scaleX(" + (max > 0 ? window.scrollY / max : 0) + ")";
+      if (!reduce) {
+        const y = Math.min(window.scrollY, window.innerHeight);
+        heroBox.style.transform = "translateY(" + y * 0.3 + "px)";
+        heroBox.style.opacity = Math.max(0, 1 - y / (window.innerHeight * 0.7));
+      }
+      ticking = false;
+    }
+    window.addEventListener("scroll", () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(onScroll); }
+    }, { passive: true });
+    onScroll();
 
     /* Card glow follows the cursor */
     document.querySelectorAll(".card").forEach((card) => {
