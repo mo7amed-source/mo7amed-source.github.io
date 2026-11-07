@@ -85,6 +85,16 @@
       nav ul a { font-size: 0.85rem; }
       .hero { padding: 60px 0 40px; }
     }
+
+    .contact-form { margin-top: 28px; display: grid; gap: 12px; max-width: 520px; }
+.contact-form input, .contact-form textarea {
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; font: inherit;
+}
+.contact-form input:focus, .contact-form textarea:focus { outline: none; border-color: var(--accent); }
+.contact-form button { cursor: pointer; justify-self: start; }
+#cfStatus { color: var(--muted); font-size: 0.9rem; }
   </style>
 </head>
 <body>
@@ -167,6 +177,15 @@
          <a href="https://github.com/mo7amed-source" class="btn ghost" target="_blank" rel="noopener">GitHub</a>
          <a href="https://www.linkedin.com/in/mohamed-ahmed-5128732ba?utm_source=share_via&utm_content=profile&utm_medium=member_android" class="btn ghost" target="_blank" rel="noopener">LinkedIn</a>
         </div>
+
+        <form id="contactForm" class="contact-form">
+         <input type="text" id="cfName" placeholder="Your name" required maxlength="100">
+         <input type="email" id="cfEmail" placeholder="Your email" required maxlength="150">
+         <textarea id="cfMessage" placeholder="Your message" rows="5" required maxlength="1000"></textarea>
+         <button type="submit" class="btn primary">Send Message</button>
+         <p id="cfStatus"></p>
+        </form>
+        
       </section>
 
     </div>
@@ -176,5 +195,32 @@
     <div class="container">&copy; 2026 Mohamed Ahmed. All rights reserved.</div>
   </footer>
 
+  <script>
+  const API_URL = "http://localhost:5004/api/contact";
+  const form = document.getElementById("contactForm");
+  const status = document.getElementById("cfStatus");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    status.textContent = "Sending...";
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: document.getElementById("cfName").value,
+          email: document.getElementById("cfEmail").value,
+          message: document.getElementById("cfMessage").value
+        })
+      });
+      if (!res.ok) throw new Error();
+      status.textContent = "Thank you! Your message was sent.";
+      form.reset();
+    } catch {
+      status.textContent = "Something went wrong. Please try again later.";
+    }
+  });
+</script>
+  
 </body>
 </html>
